@@ -1,12 +1,17 @@
 import { create } from "zustand";
 import axios from "axios";
 
-// Use Vite proxy in dev; relative path works in prod too
-const API_BASE = "";
+// Use .env for API base; fallback to dev/prod defaults
+const API_BASE =
+  import.meta.env.VITE_API_BASE ||
+  (import.meta.env.DEV
+    ? "http://localhost:5000"
+    : "https://chatbot-7m92.onrender.com");
 
+// Generate or retrieve persistent chat ID
 function getOrCreateChatId() {
   try {
-    const key = "charbot_chat_id";
+    const key = "chatbot_chat_id";
     let id = localStorage.getItem(key);
     if (!id) {
       id = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
@@ -20,6 +25,7 @@ function getOrCreateChatId() {
 
 const persistentChatId = getOrCreateChatId();
 
+// Try to extract assistant text from various formats
 const extractAssistantText = (data) => {
   if (!data) return "";
   const webhook = data.webhookResponse ?? data;
@@ -83,8 +89,12 @@ const useChatStore = create((set, get) => ({
     }));
 
     try {
-      const route = typeof window !== "undefined" ? window?.ChatWidgetConfig?.webhook?.route : undefined;
-      const res = await axios.post(`http://localhost:5000/api/chat`, {
+      const route =
+        typeof window !== "undefined"
+          ? window?.ChatWidgetConfig?.webhook?.route
+          : undefined;
+
+      const res = await axios.post(`${API_BASE}/api/chat`, {
         chatId: persistentChatId,
         message: currentMessage,
         route,
@@ -105,9 +115,7 @@ const useChatStore = create((set, get) => ({
     } catch (err) {
       console.error(err);
       const upstreamMessage =
-        err?.response?.data?.error ??
-        err?.message ??
-        "Request failed";
+        err?.response?.data?.error ?? err?.message ?? "Request failed";
 
       const assistantEntry = {
         id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
